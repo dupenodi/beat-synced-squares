@@ -2,6 +2,8 @@
 
 Turn a video file into a pulsing network of labelled squares that dance to the beat. Processing runs **locally** or on **your server** (Python + FFmpeg), not in the browser alone.
 
+**Live uploader:** [https://beat-synced-squares.onrender.com](https://beat-synced-squares.onrender.com)
+
 ## Features
 
 - Beat-driven spawning of squares with ORB keypoints  
