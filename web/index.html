@@ -1,0 +1,715 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="dark" />
+    <title>Beat-Synced Squares</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=Source+Sans+3:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --bg0: #08070a;
+        --bg1: #120c18;
+        --surface: rgba(22, 18, 32, 0.72);
+        --surface-solid: #161220;
+        --border: rgba(255, 255, 255, 0.08);
+        --border-strong: rgba(255, 255, 255, 0.14);
+        --text: #f4f2f8;
+        --muted: #9b94ad;
+        --accent: #ff6b4a;
+        --accent-dim: rgba(255, 107, 74, 0.15);
+        --ok: #5ee9b5;
+        --danger: #ff7b9c;
+        --radius: 14px;
+        --font-ui: "Source Sans 3", system-ui, sans-serif;
+        --font-display: "Bricolage Grotesque", system-ui, sans-serif;
+      }
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+      }
+      html {
+        scroll-behavior: smooth;
+      }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        font-family: var(--font-ui);
+        font-size: 1rem;
+        line-height: 1.55;
+        color: var(--text);
+        background: var(--bg0);
+        background-image:
+          radial-gradient(ellipse 120% 80% at 15% -20%, rgba(255, 107, 74, 0.18), transparent 55%),
+          radial-gradient(ellipse 90% 60% at 100% 0%, rgba(120, 80, 255, 0.12), transparent 50%),
+          linear-gradient(180deg, var(--bg1) 0%, var(--bg0) 55%);
+      }
+      body::before {
+        content: "";
+        position: fixed;
+        inset: 0;
+        pointer-events: none;
+        opacity: 0.35;
+        background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+        mix-blend-mode: overlay;
+      }
+      .shell {
+        position: relative;
+        max-width: 40rem;
+        margin: 0 auto;
+        padding: 2.25rem 1.25rem 5rem;
+      }
+      header {
+        margin-bottom: 2rem;
+      }
+      header h1 {
+        font-family: var(--font-display);
+        font-size: clamp(1.85rem, 5vw, 2.35rem);
+        font-weight: 700;
+        letter-spacing: -0.03em;
+        line-height: 1.1;
+        margin: 0 0 0.5rem;
+        background: linear-gradient(105deg, #fff 30%, #e8c4ff 100%);
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+      }
+      header p {
+        margin: 0;
+        color: var(--muted);
+        font-size: 1.02rem;
+        max-width: 36ch;
+      }
+      .panel {
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 1.35rem 1.4rem 1.5rem;
+        margin-bottom: 1.1rem;
+      }
+      .panel > h2 {
+        font-family: var(--font-display);
+        font-size: 0.68rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.14em;
+        color: var(--accent);
+        margin: 0 0 1rem;
+      }
+      .drop {
+        position: relative;
+        border: 2px dashed var(--border-strong);
+        border-radius: 12px;
+        padding: 1.75rem 1.25rem;
+        text-align: center;
+        cursor: pointer;
+        transition: border-color 0.2s, background 0.2s, transform 0.15s;
+        background: rgba(0, 0, 0, 0.2);
+      }
+      .drop:hover,
+      .drop:focus-within {
+        border-color: rgba(255, 107, 74, 0.45);
+        background: var(--accent-dim);
+      }
+      .drop.dragover {
+        border-color: var(--accent);
+        background: rgba(255, 107, 74, 0.22);
+        transform: scale(1.01);
+      }
+      .drop input[type="file"] {
+        position: absolute;
+        inset: 0;
+        opacity: 0;
+        cursor: pointer;
+        width: 100%;
+        height: 100%;
+      }
+      .drop strong {
+        display: block;
+        font-size: 1.05rem;
+        margin-bottom: 0.35rem;
+      }
+      .drop span {
+        font-size: 0.88rem;
+        color: var(--muted);
+      }
+      #file-label {
+        margin-top: 0.75rem;
+        font-size: 0.85rem;
+        color: var(--ok);
+        word-break: break-all;
+        min-height: 1.25em;
+      }
+      .presets {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        margin-bottom: 0.25rem;
+      }
+      .presets button {
+        font-family: var(--font-ui);
+        font-size: 0.82rem;
+        font-weight: 600;
+        padding: 0.45rem 0.95rem;
+        border-radius: 999px;
+        border: 1px solid var(--border-strong);
+        background: rgba(0, 0, 0, 0.25);
+        color: var(--muted);
+        cursor: pointer;
+        transition: color 0.15s, border-color 0.15s, background 0.15s, box-shadow 0.15s;
+      }
+      .presets button:hover {
+        color: var(--text);
+        border-color: rgba(255, 107, 74, 0.35);
+      }
+      .presets button[data-active="true"] {
+        color: var(--bg0);
+        background: var(--accent);
+        border-color: var(--accent);
+        box-shadow: 0 0 20px rgba(255, 107, 74, 0.35);
+      }
+      label {
+        display: block;
+        font-size: 0.76rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--muted);
+        margin-bottom: 0.4rem;
+      }
+      .row {
+        display: grid;
+        gap: 1rem;
+        margin-bottom: 1rem;
+      }
+      @media (min-width: 520px) {
+        .row.cols-2 {
+          grid-template-columns: 1fr 1fr;
+        }
+        .row.cols-3 {
+          grid-template-columns: repeat(3, 1fr);
+        }
+      }
+      input[type="text"],
+      input[type="number"] {
+        width: 100%;
+        padding: 0.62rem 0.75rem;
+        border-radius: 10px;
+        border: 1px solid var(--border-strong);
+        background: var(--surface-solid);
+        color: var(--text);
+        font-family: var(--font-ui);
+        font-size: 0.95rem;
+      }
+      input:focus {
+        outline: none;
+        border-color: rgba(255, 107, 74, 0.55);
+        box-shadow: 0 0 0 3px var(--accent-dim);
+      }
+      .hint {
+        font-size: 0.78rem;
+        color: var(--muted);
+        margin-top: 0.35rem;
+        font-weight: 400;
+        text-transform: none;
+        letter-spacing: 0;
+      }
+      .check-row {
+        display: flex;
+        align-items: center;
+        gap: 0.6rem;
+        margin-top: 0.75rem;
+      }
+      .check-row input {
+        width: 1.1rem;
+        height: 1.1rem;
+        accent-color: var(--accent);
+      }
+      .check-row label {
+        margin: 0;
+        text-transform: none;
+        letter-spacing: 0;
+        font-size: 0.92rem;
+        font-weight: 500;
+        color: var(--text);
+      }
+      details.advanced {
+        margin-top: 0.5rem;
+        border-radius: 12px;
+        border: 1px solid var(--border);
+        background: rgba(0, 0, 0, 0.15);
+        overflow: hidden;
+      }
+      details.advanced summary {
+        list-style: none;
+        cursor: pointer;
+        padding: 0.85rem 1rem;
+        font-size: 0.88rem;
+        font-weight: 600;
+        color: var(--muted);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        user-select: none;
+      }
+      details.advanced summary::-webkit-details-marker {
+        display: none;
+      }
+      details.advanced summary::after {
+        content: "▸";
+        color: var(--accent);
+        transition: transform 0.2s;
+      }
+      details.advanced[open] summary::after {
+        transform: rotate(90deg);
+      }
+      details.advanced .inner {
+        padding: 0 1rem 1.15rem;
+        border-top: 1px solid var(--border);
+      }
+      .actions {
+        position: sticky;
+        bottom: 0;
+        margin: 1.5rem -1.25rem -2rem;
+        padding: 1rem 1.25rem 1.25rem;
+        background: linear-gradient(180deg, transparent, var(--bg0) 35%);
+      }
+      @media (min-width: 480px) {
+        .actions {
+          margin-left: 0;
+          margin-right: 0;
+          padding-left: 0;
+          padding-right: 0;
+        }
+      }
+      button.primary {
+        width: 100%;
+        font-family: var(--font-display);
+        font-size: 1.05rem;
+        font-weight: 700;
+        letter-spacing: 0.02em;
+        padding: 0.95rem 1.5rem;
+        border: none;
+        border-radius: 12px;
+        background: linear-gradient(135deg, #ff8a65 0%, var(--accent) 50%, #e63e7a 100%);
+        color: #0a0608;
+        cursor: pointer;
+        box-shadow: 0 4px 24px rgba(255, 107, 74, 0.35);
+        transition: transform 0.12s, filter 0.12s;
+      }
+      button.primary:hover:not(:disabled) {
+        filter: brightness(1.06);
+        transform: translateY(-1px);
+      }
+      button.primary:active:not(:disabled) {
+        transform: translateY(0);
+      }
+      button.primary:disabled {
+        opacity: 0.45;
+        cursor: not-allowed;
+        box-shadow: none;
+      }
+      #status {
+        margin-top: 1.25rem;
+        padding: 1.1rem 1.2rem;
+        border-radius: var(--radius);
+        border: 1px solid var(--border);
+        background: var(--surface);
+        display: none;
+        font-size: 0.95rem;
+      }
+      #status.visible {
+        display: block;
+        animation: fadeIn 0.25s ease;
+      }
+      @keyframes fadeIn {
+        from {
+          opacity: 0;
+          transform: translateY(6px);
+        }
+        to {
+          opacity: 1;
+          transform: none;
+        }
+      }
+      #status.error {
+        border-color: rgba(255, 123, 156, 0.45);
+        color: var(--danger);
+      }
+      #status a {
+        color: var(--ok);
+        font-weight: 700;
+      }
+      #status code {
+        font-size: 0.88em;
+        background: rgba(0, 0, 0, 0.35);
+        padding: 0.15em 0.45em;
+        border-radius: 6px;
+      }
+      .spinner {
+        display: inline-block;
+        width: 1em;
+        height: 1em;
+        border: 2px solid var(--border-strong);
+        border-top-color: var(--accent);
+        border-radius: 50%;
+        animation: spin 0.65s linear infinite;
+        vertical-align: -0.15em;
+        margin-right: 0.4em;
+      }
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="shell">
+      <header>
+        <h1>Beat-Synced Squares</h1>
+        <p>Upload a video with audio. The server runs the same pipeline as the CLI and returns an MP4 when done.</p>
+      </header>
+
+      <form id="f">
+        <div class="panel">
+          <h2>Video</h2>
+          <div class="drop" id="dropzone" tabindex="0">
+            <input id="file" name="file" type="file" accept=".mp4,.mov,.webm,.mkv,.avi,.m4v" required />
+            <strong>Drop a file or click to browse</strong>
+            <span>MP4, MOV, WebM, MKV — max size set on server (default 500&nbsp;MB)</span>
+            <div id="file-label"></div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <h2>Presets</h2>
+          <div class="presets">
+            <button type="button" data-preset="default" data-active="true">Default</button>
+            <button type="button" data-preset="calm">Calm</button>
+            <button type="button" data-preset="dense">Dense</button>
+            <button type="button" data-preset="wild">Wild</button>
+          </div>
+        </div>
+
+        <div class="panel">
+          <h2>Timing &amp; motion</h2>
+          <div class="row cols-3">
+            <div>
+              <label for="life_frames">Life frames</label>
+              <input id="life_frames" type="number" min="1" max="500" value="10" />
+            </div>
+            <div>
+              <label for="pts_per_beat">Pts / beat</label>
+              <input id="pts_per_beat" type="number" min="1" max="500" value="20" />
+            </div>
+            <div>
+              <label for="ambient_rate">Ambient rate</label>
+              <input id="ambient_rate" type="number" min="0" max="200" step="0.5" value="5" />
+            </div>
+          </div>
+          <div class="row cols-2">
+            <div>
+              <label for="jitter_px">Jitter (px)</label>
+              <input id="jitter_px" type="number" min="0" max="20" step="0.1" value="0.5" />
+            </div>
+            <div>
+              <label for="fps">Output FPS</label>
+              <input id="fps" type="text" placeholder="empty = source" />
+            </div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <h2>Look</h2>
+          <div class="row cols-2">
+            <div>
+              <label for="min_size">Min square</label>
+              <input id="min_size" type="number" min="4" max="500" value="15" />
+            </div>
+            <div>
+              <label for="max_size">Max square</label>
+              <input id="max_size" type="number" min="4" max="800" value="40" />
+            </div>
+          </div>
+          <details class="advanced">
+            <summary>Fine-tune (ORB, links, bell)</summary>
+            <div class="inner">
+              <div class="row cols-3">
+                <div>
+                  <label for="neighbor_links">Neighbor links</label>
+                  <input id="neighbor_links" type="number" min="0" max="20" value="3" />
+                </div>
+                <div>
+                  <label for="orb_fast_threshold">ORB FAST</label>
+                  <input id="orb_fast_threshold" type="number" min="1" max="255" value="20" />
+                </div>
+                <div>
+                  <label for="bell_width">Bell width</label>
+                  <input id="bell_width" type="number" min="0.5" max="50" step="0.5" value="4" />
+                </div>
+              </div>
+            </div>
+          </details>
+        </div>
+
+        <div class="panel">
+          <h2>Orientation &amp; seed</h2>
+          <div class="row cols-2">
+            <div>
+              <label for="display_rotation">Rotation override (°)</label>
+              <input id="display_rotation" type="text" placeholder="empty = auto (ffprobe)" />
+              <p class="hint">Example: <code style="background: rgba(0,0,0,.35); padding: 0.1em 0.35em; border-radius: 4px">-90</code> for typical phone portrait metadata.</p>
+            </div>
+            <div>
+              <label for="seed">Random seed</label>
+              <input id="seed" type="text" placeholder="empty = random" />
+            </div>
+          </div>
+          <div class="check-row">
+            <input id="ignore_display_rotation" type="checkbox" />
+            <label for="ignore_display_rotation">Ignore display rotation (raw pixels)</label>
+          </div>
+        </div>
+
+        <div class="actions">
+          <button type="submit" class="primary" id="submit">Render video</button>
+        </div>
+      </form>
+
+      <div id="status" role="status" aria-live="polite"></div>
+    </div>
+
+    <script>
+      (function () {
+        var presets = {
+          default: {
+            life_frames: 10,
+            pts_per_beat: 20,
+            ambient_rate: 5,
+            jitter_px: 0.5,
+            min_size: 15,
+            max_size: 40,
+            neighbor_links: 3,
+            orb_fast_threshold: 20,
+            bell_width: 4,
+          },
+          calm: {
+            life_frames: 24,
+            pts_per_beat: 8,
+            ambient_rate: 1.5,
+            jitter_px: 0.3,
+            min_size: 20,
+            max_size: 50,
+            neighbor_links: 2,
+            orb_fast_threshold: 25,
+            bell_width: 5,
+          },
+          dense: {
+            life_frames: 8,
+            pts_per_beat: 35,
+            ambient_rate: 12,
+            jitter_px: 0.6,
+            min_size: 12,
+            max_size: 36,
+            neighbor_links: 5,
+            orb_fast_threshold: 15,
+            bell_width: 3.5,
+          },
+          wild: {
+            life_frames: 6,
+            pts_per_beat: 45,
+            ambient_rate: 18,
+            jitter_px: 1.2,
+            min_size: 10,
+            max_size: 55,
+            neighbor_links: 6,
+            orb_fast_threshold: 12,
+            bell_width: 3,
+          },
+        };
+
+        var fileInput = document.getElementById("file");
+        var fileLabel = document.getElementById("file-label");
+        var dropzone = document.getElementById("dropzone");
+
+        function setFileFromList(files) {
+          if (!files || !files.length) return;
+          var f = files[0];
+          var dt = new DataTransfer();
+          dt.items.add(f);
+          fileInput.files = dt.files;
+          fileLabel.textContent = f.name;
+        }
+
+        fileInput.addEventListener("change", function () {
+          if (fileInput.files && fileInput.files[0]) fileLabel.textContent = fileInput.files[0].name;
+          else fileLabel.textContent = "";
+        });
+
+        ["dragenter", "dragover"].forEach(function (ev) {
+          dropzone.addEventListener(ev, function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+            dropzone.classList.add("dragover");
+          });
+        });
+        ["dragleave", "drop"].forEach(function (ev) {
+          dropzone.addEventListener(ev, function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+            dropzone.classList.remove("dragover");
+          });
+        });
+        dropzone.addEventListener("drop", function (e) {
+          setFileFromList(e.dataTransfer.files);
+        });
+
+        function setActivePreset(name) {
+          document.querySelectorAll("[data-preset]").forEach(function (btn) {
+            btn.setAttribute("data-active", btn.getAttribute("data-preset") === name ? "true" : "false");
+          });
+        }
+
+        function num(id) {
+          var el = document.getElementById(id);
+          return el ? Number(el.value) : NaN;
+        }
+        function optFloat(id) {
+          var v = document.getElementById(id).value.trim();
+          if (!v) return null;
+          var n = Number(v);
+          return isNaN(n) ? null : n;
+        }
+        function optInt(id) {
+          var v = document.getElementById(id).value.trim();
+          if (!v) return null;
+          var n = parseInt(v, 10);
+          return isNaN(n) ? null : n;
+        }
+
+        function buildOptions() {
+          return {
+            fps: optFloat("fps"),
+            life_frames: num("life_frames"),
+            pts_per_beat: num("pts_per_beat"),
+            ambient_rate: num("ambient_rate"),
+            jitter_px: num("jitter_px"),
+            min_size: num("min_size"),
+            max_size: num("max_size"),
+            neighbor_links: num("neighbor_links"),
+            orb_fast_threshold: num("orb_fast_threshold"),
+            bell_width: num("bell_width"),
+            seed: optInt("seed"),
+            display_rotation: optInt("display_rotation"),
+            ignore_display_rotation: document.getElementById("ignore_display_rotation").checked,
+          };
+        }
+
+        document.querySelectorAll("[data-preset]").forEach(function (btn) {
+          btn.addEventListener("click", function () {
+            var name = btn.getAttribute("data-preset");
+            var p = presets[name];
+            if (!p) return;
+            Object.keys(p).forEach(function (k) {
+              var el = document.getElementById(k);
+              if (el) el.value = p[k];
+            });
+            setActivePreset(name);
+          });
+        });
+
+        var statusEl = document.getElementById("status");
+        var submitBtn = document.getElementById("submit");
+
+        function showStatus(html, isError) {
+          statusEl.className = "visible" + (isError ? " error" : "");
+          statusEl.innerHTML = html;
+        }
+
+        document.getElementById("f").addEventListener("submit", async function (e) {
+          e.preventDefault();
+          if (!fileInput.files || !fileInput.files[0]) {
+            showStatus("Choose a video file first.", true);
+            return;
+          }
+
+          var fd = new FormData();
+          fd.append("file", fileInput.files[0]);
+          fd.append("options", JSON.stringify(buildOptions()));
+
+          submitBtn.disabled = true;
+          showStatus('<span class="spinner" aria-hidden="true"></span> Uploading…', false);
+
+          function doneUi() {
+            submitBtn.disabled = false;
+          }
+
+          try {
+            var res = await fetch("/api/jobs", { method: "POST", body: fd });
+            var data = await res.json().catch(function () {
+              return {};
+            });
+            if (!res.ok) {
+              var msg =
+                typeof data.detail === "string"
+                  ? data.detail
+                  : JSON.stringify(data.detail || data);
+              showStatus("Error: " + msg, true);
+              doneUi();
+              return;
+            }
+            var jobId = data.job_id;
+            showStatus('<span class="spinner" aria-hidden="true"></span> Processing <code>' + jobId + "</code>…", false);
+
+            var timer = setInterval(async function () {
+              var st = await fetch("/api/jobs/" + jobId);
+              var j = await st.json();
+              if (!st.ok) {
+                clearInterval(timer);
+                showStatus("Status error: " + (j.detail || st.status), true);
+                doneUi();
+                return;
+              }
+              if (j.status === "done") {
+                clearInterval(timer);
+                var url = j.download_path || "/api/jobs/" + jobId + "/download";
+                showStatus(
+                  'Ready. <a href="' + url + '" download>Download MP4</a> — the job folder is removed after download.',
+                  false
+                );
+                doneUi();
+                return;
+              }
+              if (j.status === "error") {
+                clearInterval(timer);
+                showStatus("Render failed: " + (j.error || "unknown"), true);
+                doneUi();
+                return;
+              }
+              showStatus(
+                '<span class="spinner" aria-hidden="true"></span> <strong>' +
+                  j.status +
+                  "</strong> · <code>" +
+                  jobId +
+                  "</code>",
+                false
+              );
+            }, 1200);
+          } catch (err) {
+            showStatus("Network error: " + err, true);
+            doneUi();
+          }
+        });
+      })();
+    </script>
+  </body>
+</html>

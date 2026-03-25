@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="dark" />
+    <meta name="github-repo" content="https://github.com/YOUR_USERNAME/beat-synced-squares" />
+    <title>Beat-Synced Squares</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=Source+Sans+3:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --bg0: #08070a;
+        --surface: rgba(22, 18, 32, 0.75);
+        --border: rgba(255, 255, 255, 0.09);
+        --text: #f4f2f8;
+        --muted: #9b94ad;
+        --accent: #ff6b4a;
+        --ok: #5ee9b5;
+        --font-ui: "Source Sans 3", system-ui, sans-serif;
+        --font-display: "Bricolage Grotesque", system-ui, sans-serif;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        font-family: var(--font-ui);
+        line-height: 1.6;
+        color: var(--text);
+        background: var(--bg0);
+        background-image:
+          radial-gradient(ellipse 100% 70% at 10% -15%, rgba(255, 107, 74, 0.16), transparent 50%),
+          radial-gradient(ellipse 80% 50% at 100% 5%, rgba(120, 80, 255, 0.1), transparent 45%),
+          linear-gradient(185deg, #120c18 0%, var(--bg0) 50%);
+      }
+      body::before {
+        content: "";
+        position: fixed;
+        inset: 0;
+        pointer-events: none;
+        opacity: 0.3;
+        background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+        mix-blend-mode: overlay;
+      }
+      .wrap {
+        position: relative;
+        max-width: 38rem;
+        margin: 0 auto;
+        padding: 2.75rem 1.35rem 4rem;
+      }
+      h1 {
+        font-family: var(--font-display);
+        font-size: clamp(2rem, 5.5vw, 2.6rem);
+        font-weight: 700;
+        letter-spacing: -0.03em;
+        line-height: 1.08;
+        margin: 0 0 0.6rem;
+        background: linear-gradient(105deg, #fff 25%, #e8c4ff 95%);
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+      }
+      .lede {
+        color: var(--muted);
+        font-size: 1.08rem;
+        margin: 0 0 2rem;
+        max-width: 36ch;
+      }
+      .card {
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        padding: 1.2rem 1.35rem;
+        margin-bottom: 1rem;
+      }
+      .card h2 {
+        font-family: var(--font-display);
+        font-size: 0.65rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.16em;
+        color: var(--accent);
+        margin: 0 0 0.65rem;
+      }
+      .card p {
+        margin: 0;
+        color: var(--muted);
+        font-size: 0.98rem;
+      }
+      .card p + p {
+        margin-top: 0.65rem;
+      }
+      a {
+        color: var(--ok);
+        text-decoration: none;
+        font-weight: 600;
+      }
+      a:hover {
+        text-decoration: underline;
+      }
+      code {
+        font-size: 0.88em;
+        background: rgba(0, 0, 0, 0.35);
+        padding: 0.12em 0.4em;
+        border-radius: 6px;
+        color: var(--text);
+      }
+      ul {
+        margin: 0.6rem 0 0;
+        padding-left: 1.2rem;
+        color: var(--muted);
+        font-size: 0.95rem;
+      }
+      .cta {
+        display: inline-flex;
+        align-items: center;
+        margin-top: 1rem;
+        padding: 0.7rem 1.2rem;
+        border-radius: 10px;
+        background: linear-gradient(135deg, #ff8a65, var(--accent));
+        color: #0a0608;
+        font-family: var(--font-display);
+        font-weight: 700;
+        font-size: 0.95rem;
+        box-shadow: 0 4px 20px rgba(255, 107, 74, 0.3);
+      }
+      .cta:hover {
+        filter: brightness(1.05);
+        text-decoration: none;
+      }
+      footer {
+        margin-top: 2.5rem;
+        padding-top: 1.25rem;
+        border-top: 1px solid var(--border);
+        font-size: 0.82rem;
+        color: var(--muted);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <h1>Beat-Synced Squares</h1>
+      <p class="lede">
+        Audio-driven squares on video: onsets, ORB keypoints, Lucas–Kanade flow, neighbor edges — all timed to the
+        beat.
+      </p>
+
+      <div class="card">
+        <h2>This site</h2>
+        <p>
+          GitHub Pages only serves static files. Rendering needs <strong>Python, FFmpeg, and OpenCV</strong> on your
+          machine or a server — not in the browser.
+        </p>
+      </div>
+
+      <div class="card">
+        <h2>Run it locally</h2>
+        <p>See the repository README for setup. In short:</p>
+        <ul>
+          <li><strong>CLI:</strong> <code>python main.py -i clip.mp4 -o out.mp4</code></li>
+          <li><strong>Web UI:</strong> <code>uvicorn api.app:app --host 127.0.0.1 --port 8000</code> then open <code>/</code></li>
+        </ul>
+        <a class="cta" id="repo-link" href="#">View on GitHub →</a>
+      </div>
+
+      <footer>
+        Set <code>&lt;meta name="github-repo" content="https://github.com/…"&gt;</code> in this file so the button
+        points at your repo.
+      </footer>
+    </div>
+    <script>
+      (function () {
+        var m = document.querySelector('meta[name="github-repo"]');
+        var url = m && m.getAttribute("content");
+        var a = document.getElementById("repo-link");
+        if (url && !url.includes("YOUR_USERNAME")) a.href = url;
+        else a.href = "https://github.com/new";
+      })();
+    </script>
+  </body>
+</html>

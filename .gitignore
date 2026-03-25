@@ -1,0 +1,26 @@
+# Python
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+*.egg-info/
+.eggs/
+dist/
+build/
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
+
+# Generated media
+*_boxes.mp4
+output/
+
+# Phone / camera originals are usually too large for normal git (use Git LFS or host elsewhere)
+*.mov
+
+# To ship a short loop on GitHub Pages, add e.g. docs/preview.mp4 and uncomment:
+# !docs/preview.mp4
