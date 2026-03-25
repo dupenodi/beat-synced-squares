@@ -13,7 +13,7 @@ from pathlib import Path
 
 from fastapi import BackgroundTasks, FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, Response
 from pydantic import ValidationError
 from starlette.concurrency import run_in_threadpool
 
@@ -45,6 +45,91 @@ ALLOW_ORIGINS = os.environ.get("CORS_ALLOW_ORIGINS", "*").split(",")
 _jobs_lock = threading.Lock()
 JOBS: dict[str, dict] = {}
 
+_JOB_STATE_NAME = "job_state.json"
+
+
+def _job_dir(job_id: str) -> Path:
+    return WORK_ROOT / job_id
+
+
+def _job_state_path(job_id: str) -> Path:
+    return _job_dir(job_id) / _JOB_STATE_NAME
+
+
+def _persist_job(job_id: str, job: dict) -> None:
+    payload = {
+        "status": job["status"],
+        "error": job.get("error"),
+        "output_path": job.get("output_path"),
+        "work_dir": job.get("work_dir"),
+    }
+    p = _job_state_path(job_id)
+    p.parent.mkdir(parents=True, exist_ok=True)
+    tmp = p.with_name(p.name + ".tmp")
+    tmp.write_text(json.dumps(payload))
+    tmp.replace(p)
+
+
+def _sync_job_disk(job_id: str) -> None:
+    with _jobs_lock:
+        job = JOBS.get(job_id)
+    if job:
+        _persist_job(job_id, job)
+
+
+def _load_job_from_disk(job_id: str) -> dict | None:
+    p = _job_state_path(job_id)
+    if not p.is_file():
+        return None
+    try:
+        d = json.loads(p.read_text())
+    except (json.JSONDecodeError, OSError):
+        return None
+    return {
+        "status": d.get("status", "error"),
+        "error": d.get("error"),
+        "output_path": d.get("output_path"),
+        "work_dir": d.get("work_dir") or str(_job_dir(job_id)),
+    }
+
+
+def _ensure_job(job_id: str) -> dict | None:
+    with _jobs_lock:
+        cached = JOBS.get(job_id)
+    if cached:
+        return cached
+    loaded = _load_job_from_disk(job_id)
+    if loaded:
+        with _jobs_lock:
+            JOBS[job_id] = loaded
+        return loaded
+    return None
+
+
+def _fail_stale_processing_jobs() -> None:
+    """Mark disk-backed jobs as failed if still 'processing' after a process restart."""
+    if not WORK_ROOT.is_dir():
+        return
+    for d in WORK_ROOT.iterdir():
+        if not d.is_dir():
+            continue
+        p = d / _JOB_STATE_NAME
+        if not p.is_file():
+            continue
+        try:
+            data = json.loads(p.read_text())
+        except (json.JSONDecodeError, OSError):
+            continue
+        if data.get("status") != "processing":
+            continue
+        data["status"] = "error"
+        data["error"] = "Render interrupted (server restarted). Please upload again."
+        try:
+            p.write_text(json.dumps(data))
+        except OSError:
+            logger.warning("Could not update stale job state %s", p)
+
+
 app = FastAPI(
     title="Beat-Synced Squares",
     description="Upload a video; get back a beat-synced ORB + optical-flow overlay as MP4.",
@@ -59,13 +144,16 @@ app.add_middleware(
 )
 
 
-def _job_dir(job_id: str) -> Path:
-    return WORK_ROOT / job_id
+@app.on_event("startup")
+def _on_startup() -> None:
+    WORK_ROOT.mkdir(parents=True, exist_ok=True)
+    _fail_stale_processing_jobs()
 
 
 def _process_job_sync(job_id: str, video_in: Path, video_out: Path, kwargs: dict) -> None:
     with _jobs_lock:
         JOBS[job_id]["status"] = "processing"
+    _sync_job_disk(job_id)
     try:
         render_tracked_effect(video_in=video_in, video_out=video_out, **kwargs)
     except Exception as e:
@@ -73,10 +161,12 @@ def _process_job_sync(job_id: str, video_in: Path, video_out: Path, kwargs: dict
         with _jobs_lock:
             JOBS[job_id]["status"] = "error"
             JOBS[job_id]["error"] = str(e)
+        _sync_job_disk(job_id)
         return
     with _jobs_lock:
         JOBS[job_id]["status"] = "done"
         JOBS[job_id]["output_path"] = str(video_out)
+    _sync_job_disk(job_id)
 
 
 async def _run_job_task(job_id: str, video_in: Path, video_out: Path, kwargs: dict) -> None:
@@ -144,6 +234,7 @@ async def create_job(
             "output_path": None,
             "work_dir": str(jdir),
         }
+    _sync_job_disk(job_id)
 
     kwargs = opts.to_render_kwargs()
     background_tasks.add_task(_run_job_task, job_id, in_path, out_path, kwargs)
@@ -152,8 +243,7 @@ async def create_job(
 
 @app.get("/api/jobs/{job_id}", response_model=JobStatusResponse)
 def get_job(job_id: str) -> JobStatusResponse:
-    with _jobs_lock:
-        job = JOBS.get(job_id)
+    job = _ensure_job(job_id)
     if not job:
         raise HTTPException(status_code=404, detail="Unknown job_id")
     dl = f"/api/jobs/{job_id}/download" if job["status"] == "done" else None
@@ -171,8 +261,7 @@ def _cleanup_job_dir(path: str) -> None:
 
 @app.get("/api/jobs/{job_id}/download")
 def download_job(job_id: str, background_tasks: BackgroundTasks) -> FileResponse:
-    with _jobs_lock:
-        job = JOBS.get(job_id)
+    job = _ensure_job(job_id)
     if not job:
         raise HTTPException(status_code=404, detail="Unknown job_id")
     if job["status"] != "done":
@@ -194,6 +283,12 @@ def download_job(job_id: str, background_tasks: BackgroundTasks) -> FileResponse
     )
 
 
+@app.head("/")
+def head_index() -> Response:
+    """Render and other platforms probe with HEAD; avoid 405 on `/`."""
+    return Response(status_code=200)
+
+
 @app.get("/")
 async def serve_ui() -> FileResponse:
     index = _ROOT / "web" / "index.html"
@@ -203,3 +298,8 @@ async def serve_ui() -> FileResponse:
             content={"detail": "web/index.html missing — add the frontend bundle."},
         )
     return FileResponse(index)
+
+
+@app.head("/api/health")
+def head_health() -> Response:
+    return Response(status_code=200)
